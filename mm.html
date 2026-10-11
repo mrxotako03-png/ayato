@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Princess Aya ❤️</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; background: #000; overflow: hidden; font-family: 'Segoe UI', 'Tahoma', sans-serif; }
+  body { display: flex; align-items: center; justify-content: center; }
+  .stage { position: relative; width: 100vmin; height: 100vmin; max-width: 100vw; max-height: 100vh; }
+  .words { position: absolute; inset: 0; }
+  .word {
+    position: absolute; color: #ff2b62; font-weight: 700; font-size: 0.65rem; white-space: nowrap;
+    text-shadow: 0 0 5px #ff1a4f, 0 0 12px #ff1a4f, 0 0 22px #ff4d7a;
+    opacity: 0; filter: blur(6px); transform: translate(-50%, -50%) scale(0.3);
+    transition: opacity 0.4s ease, filter 0.6s ease, transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1), color 0.4s ease, font-size 0.4s ease;
+    letter-spacing: 0.2px; line-height: 1; will-change: transform, opacity;
+  }
+  .word.visible { opacity: 1; filter: blur(0); transform: translate(-50%, -50%) scale(1); animation: flash 1s ease-out; }
+  .word.wave { color: #fff; transform: translate(-50%, -50%) scale(1.3); text-shadow: 0 0 8px #fff, 0 0 20px #ff4d7a, 0 0 40px #ff1a4f; }
+  .words.beat { animation: beat 1.6s ease-in-out infinite; transform-origin: 50% 50%; }
+  @keyframes flash { 0% { color: #fff; text-shadow: 0 0 10px #fff, 0 0 25px #ff4d7a, 0 0 50px #ff1a4f; } 100% { color: #ff2b62; } }
+  @keyframes beat { 0%, 100% { transform: scale(1); } 14% { transform: scale(1.045); } 28% { transform: scale(1); } 42% { transform: scale(1.03); } 70% { transform: scale(1); } }
+  .word.active {
+    color: #fff; font-size: 0.9rem; z-index: 10;
+    text-shadow: 0 0 8px #fff, 0 0 18px #ff1a4f, 0 0 32px #ff4d7a, 0 0 55px #ff1a4f;
+  }
+  .name { position: absolute; left: 50%; top: 46%; transform: translate(-50%, -50%) scale(0.6); font-size: clamp(2rem, 9vmin, 5rem); font-weight: 800; color: #fff; white-space: nowrap; opacity: 0; pointer-events: none; z-index: 20; text-shadow: 0 0 10px #fff, 0 0 25px #ff4d7a, 0 0 50px #ff1a4f, 0 0 90px #ff1a4f; transition: opacity 0.8s ease, transform 0.9s cubic-bezier(0.34, 1.56, 0.64, 1); }
+  .name.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  .words.dim .word.visible { opacity: 0.18; }
+  .word.flip { animation: flipX 0.8s ease-in-out; }
+  @keyframes flipX { 0% { transform: translate(-50%, -50%) rotateX(0deg); } 50% { transform: translate(-50%, -50%) rotateX(90deg); } 100% { transform: translate(-50%, -50%) rotateX(0deg); } }
+  @media (max-width: 600px) { .word { font-size: 0.48rem; } .word.active { font-size: 0.65rem; } }
+</style>
+</head>
+<body>
+<div class="stage" id="stage"><div class="words" id="wordsLayer"></div><div class="name" id="name">Benty Aya ❤</div></div>
+
+<script>
+  const phrases = [
+    "I love you", "Kanbghik", "Je t'aime", "Te amo", "Ti amo", "Ich liebe dich",
+    "愛してる", "사랑해", "我爱你", "أحبك", "كنبغيك", "Я тебя люблю",
+    "Eu te amo", "Σ' αγαπώ", "Seni seviyorum", "Ik hou van jou",
+    "Jag älskar dig", "Kocham cię", "Anh yêu em", "אני אוהב אותך",
+    "Jeg elsker deg", "Te iubesc", "Я тебе кохаю", "Aku cinta kamu",
+    "Mahal kita", "Nakupenda"
+  ];
+
+  const stage = document.getElementById('stage');
+  const layer = document.getElementById('wordsLayer');
+
+  // ===== Heart outline (upright: lobes on top, tip at bottom; y goes UP) =====
+  const poly = [];
+  for (let i = 0; i <= 400; i++) {
+    const t = (i / 400) * Math.PI * 2;
+    poly.push({
+      x: 16 * Math.pow(Math.sin(t), 3),
+      y: 13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - Math.cos(4*t)
+    });
+  }
+  const minY = Math.min(...poly.map(p => p.y)), maxY = Math.max(...poly.map(p => p.y));
+  const minX = Math.min(...poly.map(p => p.x)), maxX = Math.max(...poly.map(p => p.x));
+
+  function inHeart(px, py) {
+    let inside = false;
+    for (let i = 1; i < poly.length; i++) {
+      const a = poly[i-1], b = poly[i];
+      if ((a.y > py) !== (b.y > py) && px < a.x + (py - a.y) * (b.x - a.x) / (b.y - a.y)) inside = !inside;
+    }
+    return inside;
+  }
+
+  // x-ranges inside the heart on a horizontal line (2 ranges above the cleft)
+  function segmentsAt(y) {
+    const xs = [];
+    for (let i = 1; i < poly.length; i++) {
+      const a = poly[i-1], b = poly[i];
+      if ((a.y > y) !== (b.y > y)) xs.push(a.x + (y - a.y) * (b.x - a.x) / (b.y - a.y));
+    }
+    xs.sort((m, n) => m - n);
+    const segs = [];
+    for (let i = 0; i + 1 < xs.length; i += 2) segs.push([xs[i], xs[i+1]]);
+    return segs;
+  }
+
+  function wordFits(cx, cy, hw, hh) {
+    const pts = [[-hw,-hh],[hw,-hh],[-hw,hh],[hw,hh],[0,-hh],[0,hh],[-hw,0],[hw,0]];
+    return pts.every(([dx, dy]) => inHeart(cx + dx, cy + dy));
+  }
+
+  let gen = 0, allEls = [], idx = 0;
+
+  function build() {
+    layer.innerHTML = '';
+    const W = stage.clientWidth, H = stage.clientHeight;
+    const SCALE = Math.min(W / (maxX - minX + 2), H / (maxY - minY + 2));
+    const CX = W / 2 - ((minX + maxX) / 2) * SCALE;
+    const CY = H / 2 + ((minY + maxY) / 2) * SCALE;   // centers the heart
+    const rowH = 0.9;
+
+    const probe = document.createElement('div');
+    probe.className = 'word';
+    probe.style.visibility = 'hidden';
+    layer.appendChild(probe);
+
+    let k = 0;
+    for (let y = maxY - rowH / 2; y > minY + rowH / 2; y -= rowH) {
+      for (const [a0, b] of segmentsAt(y).filter(s => s[1] > 0)) { const a = Math.max(a0, 0); // right half only, left is mirrored
+        let cursor = a + 0.3;
+        while (cursor < b) {
+          let placed = false;
+          for (let tryN = 0; tryN < 6 && !placed; tryN++) {
+            const text = phrases[(k + tryN) % phrases.length];
+            probe.textContent = text;
+            const hw = (probe.offsetWidth / 2) / SCALE, hh = (probe.offsetHeight / 2) / SCALE;
+            const cx = cursor + hw;
+            if (cx + hw <= b && wordFits(cx, y, hw, hh)) {
+              const el = document.createElement('div');
+              el.className = 'word';
+              el.textContent = text;
+              el.style.left = (CX + cx * SCALE) + 'px';
+              el.style.top = (CY - y * SCALE) + 'px';
+              layer.appendChild(el);
+              const m = el.cloneNode(true); m.style.left = (CX - cx * SCALE) + 'px'; layer.appendChild(m); // mirror on the left
+              cursor += hw * 2 + 0.45;
+              k += tryN + 1;
+              placed = true;
+            }
+          }
+          if (!placed) cursor += 0.5;
+        }
+      }
+    }
+    layer.removeChild(probe);
+  }
+
+  function showAll() {
+    allEls = Array.from(layer.children);
+    window.revealStep = Math.min(80, 9000 / allEls.length);
+    allEls.forEach((el, i) => setTimeout(() => el.classList.add('visible'), i * window.revealStep));
+  }
+
+  function cycle(g) {
+    if (g !== gen || !allEls.length) return;
+    if (idx >= allEls.length) { idx = 0; setTimeout(() => cycle(g), 1500); return; }
+    allEls.forEach(e => e.classList.remove('active'));
+    allEls[idx++].classList.add('active');
+    setTimeout(() => cycle(g), 240);
+  }
+
+  function showName(g) {
+    if (g !== gen) return;
+    const nm = document.getElementById('name');
+    allEls.forEach(el => setTimeout(() => {
+      el.classList.add('flip');
+      setTimeout(() => el.classList.remove('flip'), 800);
+    }, parseFloat(el.style.top) * 1.2));
+    setTimeout(() => { layer.classList.add('dim'); nm.classList.add('show'); }, 900);
+    setTimeout(() => { nm.classList.remove('show'); layer.classList.remove('dim'); }, 5500);
+    setTimeout(() => showName(g), 13000);
+  }
+
+  function wave(g) {
+    if (g !== gen) return;
+    allEls.forEach(el => {
+      setTimeout(() => {
+        el.classList.add('wave');
+        setTimeout(() => el.classList.remove('wave'), 600);
+      }, parseFloat(el.style.top) * 1.4);
+    });
+    setTimeout(() => wave(g), 5000);
+  }
+
+  function init() {
+    layer.classList.remove('beat');
+    gen++; idx = 0; allEls = [];
+    const g = gen;
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      build(); showAll(); setTimeout(() => { if (g !== gen) return; layer.classList.add('beat'); wave(g); setTimeout(() => showName(g), 3000); }, allEls.length * window.revealStep + 1200);
+    }));
+  }
+
+  let rt;
+  addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(init, 300); });
+  init();
+</script>
+</body>
+</html>
